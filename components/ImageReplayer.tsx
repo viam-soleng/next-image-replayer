@@ -89,7 +89,7 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
 
   return (
     <div
-      className="relative h-screen w-full"
+      className="relative w-full" // how do i make this take up the full available width??
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
@@ -124,7 +124,7 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
               <SkipForwardIcon className="text-white" />
             </button>
           </div>
-          <div className="flex items-center space-x-2">
+          {/* <div className="flex items-center space-x-2">
             <button className="bg-transparent hover:bg-gray-100 text-gray-800 hover:text-gray-900 border border-gray-300 hover:border-gray-400 py-2 px-4 rounded-md">
               <SettingsIcon className="text-white" />
             </button>
@@ -134,7 +134,7 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
             <button className="bg-transparent hover:bg-gray-100 text-gray-800 hover:text-gray-900 border border-gray-300 hover:border-gray-400 py-2 px-4 rounded-md">
               <DoorClosedIcon className="text-white" />
             </button>
-          </div>
+          </div> */}
         </div>
         <div className="mt-2 flex items-center space-x-2">
           <span className="text-xs font-medium text-white">11:07 AM</span>

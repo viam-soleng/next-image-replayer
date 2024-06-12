@@ -1,12 +1,9 @@
-import ConfigMenu from "@/components/ConfigMenu";
-import ImageReplayer from "@/components/ImageReplayer";
-import Image from "next/image";
+import ViamInterface from "@/components/ViamInterface";
 
 export default function Home() {
   return (
-    <div className="flex">
-      <ConfigMenu />
-      <ImageReplayer />
+    <div className="">
+      <ViamInterface />
     </div>
   );
 }
