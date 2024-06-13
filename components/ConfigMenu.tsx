@@ -138,14 +138,13 @@ const ConfigMenu: FC<ConfigMenuProps> = (props) => {
         label="Location"
         items={locations}
         isLoading={locationsIsLoading}
-        value={selectedLocation}
+        value={selectedLocation?.id}
         onChange={(targetVal: string) => {
-          console.log("selected location input val:", targetVal);
           const selectedLocation = locations?.find((loc: any) => {
             console.log(JSON.stringify(loc, null, 2));
             return loc.id == targetVal;
           });
-          console.log("Selected location:", selectedLocation);
+
           //@ts-ignore
           setSelectedLocation(selectedLocation);
         }}
