@@ -1,6 +1,6 @@
 "use client";
 import React, { FC, SVGProps, useRef, useState, useEffect } from "react";
-import { Credential } from "@viamrobotics/sdk";
+import { Credential, DataClient } from "@viamrobotics/sdk";
 import { useQuery } from "@tanstack/react-query";
 import { useStore } from "@/store/zustand";
 
@@ -163,6 +163,58 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
     };
   }, [isPlaying]);
 
+  async function fetchImages(dataClient: DataClient, filter: any) {
+    // const limit = 1;
+    // const images = [];
+
+    // for (let i = 0; i < 25; i++) {
+    //   // const response = await fetch(`https://api.example.com/images?limit=${limit}&offset=${offset + i}`);
+    //   // images.push(response.data[0]);
+    //   const binaryData = await dataClient?.binaryDataByFilter(undefined, 1, 0);
+    //   console.log("Binary Data");
+    //   console.log(JSON.stringify(binaryData, null, 2));
+    //   images.push(binaryData.data[0]);
+    // }
+
+    // return images;
+    const limit = 1;
+    let last = "";
+    const totalCalls = 25;
+    const images = [];
+
+    for (let i = 0; i < totalCalls; i++) {
+      try {
+        const binaryData = await dataClient.binaryDataByFilter(
+          undefined,
+          limit,
+          undefined,
+          last,
+          true,
+          false,
+          false
+        );
+
+        // Process the data here (response.data)
+        console.log("Binary Data w/ last of ", last);
+        console.log(JSON.stringify(binaryData, null, 2));
+        images.push(binaryData.data[0]);
+
+        // Update the last ID for the next iteration
+        last = binaryData.last;
+
+        // If there's no more data, break the loop
+        if (binaryData.data.length === 0) {
+          break;
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        break;
+      }
+    }
+    console.log("Images", images);
+    return images;
+  }
+
   const {
     isLoading: imagesAreLoading,
     data: images,
@@ -201,10 +253,10 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
       //   25,
       //   0
       // );
-      const binaryData = await dataClient?.binaryDataByFilter(undefined, 1, 0);
-      console.log("Binary Data");
-      console.log(JSON.stringify(binaryData, null, 2));
-      return binaryData;
+      // const binaryData = await dataClient?.binaryDataByFilter(undefined, 1, 0);
+      const images = await fetchImages(dataClient!, formattedFilter);
+
+      return images;
     },
   });
 
@@ -237,9 +289,9 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
         )}
         {images && (
           <img
-            src={`data:image/jpeg;base64,${images.data[0].binary}`}
+            src={`data:image/jpeg;base64,${images[0].binary}`}
             alt="Replay footage"
-            className="w-full h-auto"
+            className="w-full h-auto transform rotate-180"
           />
         )}
       </div>
