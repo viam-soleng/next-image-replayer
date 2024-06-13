@@ -1,14 +1,90 @@
 "use client";
 import React, { FC, SVGProps, useRef, useState, useEffect } from "react";
+import { Credential } from "@viamrobotics/sdk";
+import { useQuery } from "@tanstack/react-query";
+import { useStore } from "@/store/zustand";
+
+function createFilter({
+  selectedOrg,
+  selectedLocation,
+  machineName,
+  machineId,
+  startTime,
+  endTime,
+}: {
+  selectedOrg?: any;
+  selectedLocation?: any;
+  machineName?: string;
+  machineId?: string;
+  startTime?: string;
+  endTime?: string;
+}) {
+  const filter = {};
+
+  if (selectedOrg) {
+    //@ts-ignore
+    filter.organization_ids = [selectedOrg.id];
+  }
+
+  if (selectedLocation) {
+    //@ts-ignore
+    filter.location_ids = [selectedLocation.id];
+  }
+
+  if (machineName) {
+    //@ts-ignore
+    filter.component_name = machineName;
+  }
+
+  if (machineId) {
+    //@ts-ignore
+    filter.robot_id = machineId;
+  }
+
+  const interval = {};
+  if (startTime) {
+    //@ts-ignore
+    interval.start_time = new Date(startTime).toISOString();
+  }
+  if (endTime) {
+    //@ts-ignore
+    interval.end_time = new Date(endTime).toISOString();
+  }
+  if (Object.keys(interval).length > 0) {
+    //@ts-ignore
+    filter.interval = interval;
+  }
+
+  return filter;
+}
+
+interface BinaryDataFilter {
+  selectedOrg?: any;
+  selectedLocation?: any;
+  machineName?: string;
+  machineId?: string;
+  startTime?: string;
+  endTime?: string;
+}
 
 interface ImageReplayerProps {
-  // Define props and propTypes here
+  apiKey: string;
+  apiKeyId: string;
 }
 
 const ImageReplayer: FC<ImageReplayerProps> = (props) => {
+  const { startTime, endTime, selectedOrg, selectedLocation } = useStore();
   const [currentTimePosition, setCurrentTimePosition] = useState(0.3);
   const [isDragging, setIsDragging] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [filter, setFilter] = useState<BinaryDataFilter>({
+    selectedOrg,
+    selectedLocation,
+    machineName: "",
+    machineId: "",
+    startTime,
+    endTime,
+  });
   const timelineRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<number | null>(null);
 
@@ -36,12 +112,12 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
     }
   };
 
-  const startTime = new Date("2023-08-02T11:07:00");
-  const endTime = new Date("2023-08-02T11:17:00");
-  const duration = endTime.getTime() - startTime.getTime();
+  const dateStartTime = new Date(startTime);
+  const dateEndTime = new Date(endTime);
+  const duration = dateStartTime.getTime() - dateEndTime.getTime();
 
   const currentTime = new Date(
-    startTime.getTime() + duration * currentTimePosition
+    dateStartTime.getTime() + duration * currentTimePosition
   );
 
   const formatTime = (date: Date) => {
@@ -87,17 +163,86 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
     };
   }, [isPlaying]);
 
+  const {
+    isLoading: imagesAreLoading,
+    data: images,
+    isError: getImagesError,
+    error: getImagesErrorDetails,
+  } = useQuery({
+    queryKey: [
+      "images",
+      selectedOrg?.id,
+      selectedLocation?.id,
+      startTime,
+      endTime,
+    ],
+    queryFn: async () => {
+      console.log("Querying image data");
+      const Viam = await import("@viamrobotics/sdk");
+
+      const viamClientCredential: Credential = {
+        authEntity: props.apiKeyId,
+        payload: props.apiKey,
+        type: "api-key",
+      };
+
+      const viamClient = await Viam.createViamClient({
+        // serviceHost: process.env.host,
+        credential: viamClientCredential,
+      });
+
+      const dataClient = viamClient.dataClient;
+      const formattedFilter = createFilter(filter);
+      console.log("Filter", formattedFilter);
+
+      // const binaryData = await dataClient?.binaryDataByFilter(
+      //   // @ts-ignore
+      //   formattedFilter,
+      //   25,
+      //   0
+      // );
+      const binaryData = await dataClient?.binaryDataByFilter(undefined, 1, 0);
+      console.log("Binary Data");
+      console.log(JSON.stringify(binaryData, null, 2));
+      return binaryData;
+    },
+  });
+
+  useEffect(() => {
+    setFilter({
+      selectedOrg,
+      selectedLocation,
+      machineName: "",
+      machineId: "",
+      startTime,
+      endTime,
+    });
+  }, [selectedOrg, selectedLocation, startTime, endTime]);
+
   return (
     <div
       className="relative w-full" // how do i make this take up the full available width??
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
-      <img
+      {/* <img
         src="/placeholder.svg"
         alt="Replay footage"
         className="w-full h-auto"
-      />
+      /> */}
+      <div className="w-full h-auto">
+        {imagesAreLoading && <p>Loading images...</p>}
+        {getImagesError && (
+          <p className="text-red">Error: {getImagesErrorDetails.message}</p>
+        )}
+        {images && (
+          <img
+            src={`data:image/jpeg;base64,${images.data[0].binary}`}
+            alt="Replay footage"
+            className="w-full h-auto"
+          />
+        )}
+      </div>
       <div className="absolute bottom-0 left-0 right-0 px-4 py-2 bg-[rgba(0,0,0,0.6)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">

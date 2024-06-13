@@ -102,7 +102,7 @@ const ViamInterface: FC<ViamInterfaceProps> = (props) => {
             <div className="flex flex-1">
               <QueryClientProvider client={queryClient}>
                 <ConfigMenu apiKey={config.key} apiKeyId={config.id} />
-                <ImageReplayer />
+                <ImageReplayer apiKey={config.key} apiKeyId={config.id} />
               </QueryClientProvider>
             </div>
           </>

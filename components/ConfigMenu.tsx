@@ -1,8 +1,9 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import { Credential } from "@viamrobotics/sdk";
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect } from "react";
 import ViamSelect from "./ViamSelect";
+import { useStore } from "../store/zustand";
 
 interface ConfigMenuProps {
   apiKey: string;
@@ -22,23 +23,29 @@ interface ViamOrg {
 }
 
 const ConfigMenu: FC<ConfigMenuProps> = (props) => {
-  const [selectedOrg, setSelectedOrg] = useState<ViamOrg | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState("");
-  const [machineName, setMachineName] = useState("");
-  const [machineID, setMachineID] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const {
+    selectedOrg,
+    setSelectedOrg,
+    selectedLocation,
+    setSelectedLocation,
+    machineName,
+    setMachineName,
+    machineID,
+    setMachineID,
+    startTime,
+    setStartTime,
+    endTime,
+    setEndTime,
+  } = useStore();
 
   const {
     isLoading: orgsIsLoading,
     data: orgs,
-    refetch,
     isError: getOrgsError,
     error: getOrgsErrorDetails,
   } = useQuery({
     queryKey: ["organizations"],
     queryFn: async () => {
-      // Lazy load the Viam TS lib since it needs `window` to be defined
       const Viam = await import("@viamrobotics/sdk");
 
       const viamClientCredential: Credential = {
@@ -48,7 +55,6 @@ const ConfigMenu: FC<ConfigMenuProps> = (props) => {
       };
 
       const viamClient = await Viam.createViamClient({
-        // serviceHost: process.env.host,
         credential: viamClientCredential,
       });
 
@@ -69,8 +75,6 @@ const ConfigMenu: FC<ConfigMenuProps> = (props) => {
     }
   }, [orgs]);
 
-  // do a similar query as above for appClient?.listLocations() and appClient?.listMachines()
-  // and use the data to populate the select dropdowns
   const {
     isLoading: locationsIsLoading,
     data: locations,
@@ -80,7 +84,6 @@ const ConfigMenu: FC<ConfigMenuProps> = (props) => {
     queryKey: ["locations", selectedOrg?.id],
     queryFn: async () => {
       console.log("Querying locations. Selected org:", selectedOrg?.id);
-      // Lazy load the Viam TS lib since it needs `window` to be defined
       const Viam = await import("@viamrobotics/sdk");
 
       const viamClientCredential: Credential = {
@@ -90,12 +93,10 @@ const ConfigMenu: FC<ConfigMenuProps> = (props) => {
       };
 
       const viamClient = await Viam.createViamClient({
-        // serviceHost: process.env.host,
         credential: viamClientCredential,
       });
 
       const appClient = viamClient.appClient;
-      // pass the selected org id as the argument to listLocations
       if (!selectedOrg) {
         return [];
       }
@@ -124,14 +125,30 @@ const ConfigMenu: FC<ConfigMenuProps> = (props) => {
         items={orgs}
         isLoading={orgsIsLoading}
         value={selectedOrg}
-        onChange={setSelectedOrg}
+        onChange={(targetVal: string) => {
+          if (!targetVal) return;
+          console.log("Selected org input val:", targetVal);
+          const org = orgs?.find((org: any) => org.name === targetVal);
+          console.log("Selected org:", org);
+          //@ts-ignore
+          setSelectedOrg(org);
+        }}
       />
       <ViamSelect
         label="Location"
         items={locations}
         isLoading={locationsIsLoading}
         value={selectedLocation}
-        onChange={setSelectedLocation}
+        onChange={(targetVal: string) => {
+          console.log("selected location input val:", targetVal);
+          const selectedLocation = locations?.find((loc: any) => {
+            console.log(JSON.stringify(loc, null, 2));
+            return loc.id == targetVal;
+          });
+          console.log("Selected location:", selectedLocation);
+          //@ts-ignore
+          setSelectedLocation(selectedLocation);
+        }}
       />
       <div className="mb-4">
         <label className="block mb-1">Machine Name</label>

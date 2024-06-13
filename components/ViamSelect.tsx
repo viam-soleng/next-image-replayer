@@ -17,8 +17,15 @@ const ViamSelect: React.FC<ViamSelectProps> = ({
 }) => {
   useEffect(() => {
     console.log("Initialising ViamSelect to default value");
-    if (items) {
-      onChange(items[0]);
+    console.log("items", items);
+    console.log("value", value);
+    if (items === undefined || items === null) {
+      return;
+    }
+    if (items[0] !== undefined && items[0] !== null) {
+      //@ts-ignore
+      console.log("Setting default value to:", items[0]?.name);
+      onChange(items[0]?.name);
     }
   }, [items]);
   return (
