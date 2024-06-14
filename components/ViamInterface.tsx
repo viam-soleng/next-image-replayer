@@ -62,7 +62,13 @@ const ViamInterface: FC<ViamInterfaceProps> = (props) => {
       <main className="flex mx-auto items-stretch h-[calc(100vh-82px)] w-full relative">
         {/* Input for when the config doesn't exist */}
         {!config && (
-          <form onSubmit={handleSubmit} className="py-12">
+          <form
+            onSubmit={handleSubmit}
+            className="py-12 w-full h-full flex flex-col items-center justify-start"
+          >
+            <h2 className="text-2xl pb-8 max-w-lg text-center">
+              Connect with a Viam API Key
+            </h2>
             <div className="pb-4 flex flex-col space-y-2">
               <label className="block text-sm">Please enter your API Key</label>
               <input
