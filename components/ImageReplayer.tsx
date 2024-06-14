@@ -74,8 +74,7 @@ interface ImageReplayerProps {
 
 const ImageReplayer: FC<ImageReplayerProps> = (props) => {
   const { startTime, endTime, selectedOrg, selectedLocation } = useStore();
-  const [currentTimePosition, setCurrentTimePosition] = useState(0.3);
-  const [isDragging, setIsDragging] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [filter, setFilter] = useState<BinaryDataFilter>({
     selectedOrg,
@@ -85,72 +84,30 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
     startTime,
     endTime,
   });
-  const timelineRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<number | null>(null);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    updateTimePosition(e);
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging) {
-      updateTimePosition(e);
-    }
-  };
-
-  const updateTimePosition = (e: React.MouseEvent) => {
-    if (timelineRef.current) {
-      const rect = timelineRef.current.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const newPosition = Math.max(0, Math.min(1, offsetX / rect.width));
-      setCurrentTimePosition(newPosition);
-    }
-  };
-
-  const dateStartTime = new Date(startTime);
-  const dateEndTime = new Date(endTime);
-  const duration = dateStartTime.getTime() - dateEndTime.getTime();
-
-  const currentTime = new Date(
-    dateStartTime.getTime() + duration * currentTimePosition
-  );
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
 
   const togglePlay = () => {
     setIsPlaying((prev) => !prev);
   };
 
   const skipForward = () => {
-    setCurrentTimePosition((prev) => Math.min(1, prev + 0.1));
+    setCurrentImageIndex((prev) => Math.min(images?.length! - 1, prev + 1));
   };
 
   const skipBackward = () => {
-    setCurrentTimePosition((prev) => Math.max(0, prev - 0.1));
+    setCurrentImageIndex((prev) => Math.max(0, prev - 1));
   };
 
   useEffect(() => {
     if (isPlaying) {
       intervalRef.current = window.setInterval(() => {
-        setCurrentTimePosition((prev) => {
-          if (prev >= 1) {
-            setIsPlaying(false);
-            return prev;
+        setCurrentImageIndex((prev) => {
+          if (prev >= images?.length! - 1) {
+            return 0;
           }
-          return prev + 0.01;
+          return prev + 1;
         });
-      }, 1000);
+      }, 100); // Change interval time as needed
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -164,19 +121,6 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
   }, [isPlaying]);
 
   async function fetchImages(dataClient: DataClient, filter: any) {
-    // const limit = 1;
-    // const images = [];
-
-    // for (let i = 0; i < 25; i++) {
-    //   // const response = await fetch(`https://api.example.com/images?limit=${limit}&offset=${offset + i}`);
-    //   // images.push(response.data[0]);
-    //   const binaryData = await dataClient?.binaryDataByFilter(undefined, 1, 0);
-    //   console.log("Binary Data");
-    //   console.log(JSON.stringify(binaryData, null, 2));
-    //   images.push(binaryData.data[0]);
-    // }
-
-    // return images;
     const limit = 1;
     let last = "";
     const totalCalls = 25;
@@ -194,15 +138,9 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
           false
         );
 
-        // Process the data here (response.data)
-        console.log("Binary Data w/ last of ", last);
-        console.log(JSON.stringify(binaryData, null, 2));
         images.push(binaryData.data[0]);
-
-        // Update the last ID for the next iteration
         last = binaryData.last;
 
-        // If there's no more data, break the loop
         if (binaryData.data.length === 0) {
           break;
         }
@@ -211,7 +149,6 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
         break;
       }
     }
-    console.log("Images", images);
     return images;
   }
 
@@ -229,7 +166,6 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
       endTime,
     ],
     queryFn: async () => {
-      console.log("Querying image data");
       const Viam = await import("@viamrobotics/sdk");
 
       const viamClientCredential: Credential = {
@@ -239,24 +175,18 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
       };
 
       const viamClient = await Viam.createViamClient({
-        // serviceHost: process.env.host,
         credential: viamClientCredential,
       });
 
       const dataClient = viamClient.dataClient;
       const formattedFilter = createFilter(filter);
-      console.log("Filter", formattedFilter);
-
-      // const binaryData = await dataClient?.binaryDataByFilter(
-      //   // @ts-ignore
-      //   formattedFilter,
-      //   25,
-      //   0
-      // );
-      // const binaryData = await dataClient?.binaryDataByFilter(undefined, 1, 0);
       const images = await fetchImages(dataClient!, formattedFilter);
 
-      return images;
+      return images.sort(
+        (a, b) =>
+          a?.metadata?.timeRequested.seconds -
+          b?.metadata?.timeRequested.seconds
+      );
     },
   });
 
@@ -272,24 +202,15 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
   }, [selectedOrg, selectedLocation, startTime, endTime]);
 
   return (
-    <div
-      className="relative w-full" // how do i make this take up the full available width??
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-    >
-      {/* <img
-        src="/placeholder.svg"
-        alt="Replay footage"
-        className="w-full h-auto"
-      /> */}
+    <div className="relative w-full">
       <div className="w-full h-auto">
         {imagesAreLoading && <p>Loading images...</p>}
         {getImagesError && (
           <p className="text-red">Error: {getImagesErrorDetails.message}</p>
         )}
-        {images && (
+        {images && images[currentImageIndex] && (
           <img
-            src={`data:image/jpeg;base64,${images[0].binary}`}
+            src={`data:image/jpeg;base64,${images[currentImageIndex].binary}`}
             alt="Replay footage"
             className="w-full h-auto transform rotate-180"
           />
@@ -321,38 +242,6 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
               <SkipForwardIcon className="text-white" />
             </button>
           </div>
-          {/* <div className="flex items-center space-x-2">
-            <button className="bg-transparent hover:bg-gray-100 text-gray-800 hover:text-gray-900 border border-gray-300 hover:border-gray-400 py-2 px-4 rounded-md">
-              <SettingsIcon className="text-white" />
-            </button>
-            <button className="bg-transparent hover:bg-gray-100 text-gray-800 hover:text-gray-900 border border-gray-300 hover:border-gray-400 py-2 px-4 rounded-md">
-              <FullscreenIcon className="text-white" />
-            </button>
-            <button className="bg-transparent hover:bg-gray-100 text-gray-800 hover:text-gray-900 border border-gray-300 hover:border-gray-400 py-2 px-4 rounded-md">
-              <DoorClosedIcon className="text-white" />
-            </button>
-          </div> */}
-        </div>
-        <div className="mt-2 flex items-center space-x-2">
-          <span className="text-xs font-medium text-white">11:07 AM</span>
-          <div
-            className="flex-1 h-1 bg-white relative cursor-pointer"
-            ref={timelineRef}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-          >
-            <div
-              className="h-1 bg-red-500 absolute"
-              style={{ width: `${currentTimePosition * 100}%` }}
-            />
-          </div>
-          <span className="text-xs font-medium text-white">11:17 AM</span>
-        </div>
-        <div className="mt-1 flex items-center justify-center space-x-1">
-          <span className="text-xs font-medium text-white">Wed 08/02/2023</span>
-          <span className="text-xs font-medium text-white">
-            {formatTime(currentTime)}
-          </span>
         </div>
       </div>
     </div>
@@ -360,6 +249,8 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
 };
 
 export default ImageReplayer;
+
+// SVG Icon components (SkipBackIcon, SkipForwardIcon, PlayIcon, PauseIcon, etc.) remain unchanged
 
 function DoorClosedIcon(props: SVGProps<SVGSVGElement>) {
   return (
