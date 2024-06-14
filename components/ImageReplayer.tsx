@@ -216,6 +216,16 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
           />
         )}
       </div>
+      <div className="absolute top-0 right-0 bg-black/50">
+        {images && images[currentImageIndex] && (
+          <p className="text-white text-sm p-2">
+            {new Date(
+              //@ts-ignore
+              images[currentImageIndex].metadata.timeRequested.seconds * 1000
+            ).toLocaleString()}
+          </p>
+        )}
+      </div>
       <div className="absolute bottom-0 left-0 right-0 px-4 py-2 bg-[rgba(0,0,0,0.6)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
