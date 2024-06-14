@@ -76,6 +76,7 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
   const { startTime, endTime, selectedOrg, selectedLocation } = useStore();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [filter, setFilter] = useState<BinaryDataFilter>({
     selectedOrg,
     selectedLocation,
@@ -85,6 +86,9 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
     endTime,
   });
   const intervalRef = useRef<number | null>(null);
+
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const [currentTimePosition, setCurrentTimePosition] = useState(0);
 
   const togglePlay = () => {
     setIsPlaying((prev) => !prev);
@@ -107,6 +111,12 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
           }
           return prev + 1;
         });
+        // update currentTimePosition to same relative position as currentImageIndex
+        const newTimePosition = currentImageIndex / (images?.length! - 1);
+        console.log(`currentImageIndex: ${currentImageIndex}`);
+        console.log(`images.length: ${images?.length}`);
+        console.log("newTimePosition", newTimePosition);
+        setCurrentTimePosition(newTimePosition);
       }, 100); // Change interval time as needed
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -118,7 +128,7 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isPlaying]);
+  }, [isPlaying, currentImageIndex]);
 
   async function fetchImages(dataClient: DataClient, filter: any) {
     const limit = 1;
@@ -201,10 +211,95 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
     });
   }, [selectedOrg, selectedLocation, startTime, endTime]);
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    updateTimePosition(e);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging) {
+      updateTimePosition(e);
+    }
+  };
+
+  const updateTimePosition = (e: React.MouseEvent) => {
+    if (timelineRef.current) {
+      const rect = timelineRef.current.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const newPosition = Math.max(0, Math.min(1, offsetX / rect.width));
+      setCurrentTimePosition(newPosition);
+      setImageIndexToTimePosition();
+    }
+  };
+
+  const setImageIndexToTimePosition = () => {
+    if (images) {
+      const totalImages = images.length;
+      const index = Math.floor(currentTimePosition * totalImages);
+      setCurrentImageIndex(index);
+    }
+  };
+
+  const dateStartTime = new Date(startTime);
+  const dateEndTime = new Date(endTime);
+  const duration = dateStartTime.getTime() - dateEndTime.getTime();
+
+  const currentTime = new Date(
+    dateStartTime.getTime() + duration * currentTimePosition
+  );
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
+
+  const getEarliestTime = (images: any) => {
+    if (images) {
+      const earliestTime = new Date(
+        //@ts-ignore
+        images[0]?.metadata.timeRequested.seconds * 1000
+      );
+      return formatTime(earliestTime);
+    }
+    return "";
+  };
+
+  const getLatestTime = (images: any) => {
+    if (images) {
+      const latestTime = new Date(
+        //@ts-ignore
+        images[images.length - 1]?.metadata.timeRequested.seconds * 1000
+      );
+      return formatTime(latestTime);
+    }
+    return "";
+  };
+
+  if (imagesAreLoading)
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          className="animate-spin"
+        >
+          <path d="M10.14,1.16a11,11,0,0,0-9,8.92A1.59,1.59,0,0,0,2.46,12,1.52,1.52,0,0,0,4.11,10.7a8,8,0,0,1,6.66-6.61A1.42,1.42,0,0,0,12,2.69h0A1.57,1.57,0,0,0,10.14,1.16Z" />
+        </svg>
+      </div>
+    );
+
   return (
     <div className="relative w-full">
       <div className="w-full h-auto">
-        {imagesAreLoading && <p>Loading images...</p>}
         {getImagesError && (
           <p className="text-red">Error: {getImagesErrorDetails.message}</p>
         )}
@@ -226,8 +321,8 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
           </p>
         )}
       </div>
-      <div className="absolute bottom-0 left-0 right-0 px-4 py-2 bg-[rgba(0,0,0,0.6)]">
-        <div className="flex items-center justify-between">
+      <div className="absolute -bottom-4 left-0 right-0 px-4 py-2 bg-[rgba(0,0,0,0.6)]">
+        <div className="flex items-center justify-center">
           <div className="flex items-center space-x-2">
             <button
               className="bg-transparent hover:bg-gray-100 text-gray-800 hover:text-gray-900 border border-gray-300 hover:border-gray-400 py-2 px-4 rounded-md"
@@ -252,6 +347,40 @@ const ImageReplayer: FC<ImageReplayerProps> = (props) => {
               <SkipForwardIcon className="text-white" />
             </button>
           </div>
+
+          {/* <div className="mt-1 flex items-center justify-center space-x-1">
+            {images && (
+              <>
+                <span className="text-xs font-medium text-white">
+                  {new Date(
+                    //@ts-ignore
+                    images[currentImageIndex]?.metadata.timeRequested.seconds *
+                      1000
+                  ).toLocaleString()}
+                </span>
+              </>
+            )}
+          </div> */}
+        </div>
+        <div className="mt-2 flex items-center space-x-2 w-full">
+          <span className="text-xs font-medium text-white">
+            {getEarliestTime(images)}
+          </span>
+          <div
+            className="flex-1 h-1 bg-white relative cursor-pointer"
+            ref={timelineRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+          >
+            <div
+              className="h-1 bg-red-500 absolute"
+              style={{ width: `${currentTimePosition * 100}%` }}
+            />
+          </div>
+          <span className="text-xs font-medium text-white">
+            {getLatestTime(images)}
+          </span>
         </div>
       </div>
     </div>
